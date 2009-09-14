@@ -1,0 +1,26 @@
+HKCR
+{
+	SolutionBuildEnvironment.Connect.1 = s 'Connect Class'
+	{
+		CLSID = s '{1118995E-7725-4B1B-8C71-F979BEF1CE75}'
+	}
+	SolutionBuildEnvironment.Connect = s 'Connect Class'
+	{
+		CLSID = s '{1118995E-7725-4B1B-8C71-F979BEF1CE75}'
+		CurVer = s 'SolutionBuildEnvironment.Connect.1'
+	}
+	NoRemove CLSID
+	{
+		ForceRemove '{1118995E-7725-4B1B-8C71-F979BEF1CE75}' = s 'Connect Class'
+		{
+			ProgID = s 'SolutionBuildEnvironment.Connect.1'
+			VersionIndependentProgID = s 'SolutionBuildEnvironment.Connect'
+			ForceRemove 'Programmable'
+			InprocServer32 = s '%MODULE%'
+			{
+				val ThreadingModel = s 'Apartment'
+			}
+			'TypeLib' = s '{25ADFE4B-F8E8-43DC-AB52-31580963CB9A}'
+		}
+	}
+}

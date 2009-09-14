@@ -1,0 +1,189 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Language" content="en-us">
+<meta name="GENERATOR" content="Microsoft FrontPage 12.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>Solution Build Environment for Visual Studio .NET</title>
+</head>
+
+<body>
+
+<h1 align="center">Solution Build Environment 1.30</h1>
+<h3 align="center">An Add-in for Visual Studio 2008/2005/2003/2002</h3>
+<p align="center">November 4, 2008<br>
+<br>
+<a href="http://workspacewhiz.com/OtherAddins.html">
+http://wwhiz.com/OtherAddins.html</a></p>
+<h2>Introduction</h2>
+<p>The Solution Build Environment add-in uses a new file called <i>
+SolutionName.slnenv</i> residing in the same directory as the solution to
+provide build environment variables tailored to a given solution file.
+<i>.slnenv</i> stands for &quot;solution environment.&quot; The Solution Build Environment add-in
+executes this file at solution open time and before the start of each
+build, resetting the build's environment variables accordingly.</p>
+<p>New versions of the Solution Build Environment add-in may be found on
+<a href="http://workspacewhiz.com/">http://wwhiz.com/</a> in the <b>Other Addins</b> section.</p>
+<h2>Usage</h2>
+<p>Inside the <i>SolutionName.slnenv</i> file, with one entry per line, are
+<code>environmentvariablename=value</code> entries.</p>
+<pre>MYPATH=c:\Src\MyDirectory\Include
+EXTRA_OPTS=/D MY_DEFINE</pre>
+<p>The solution's path is available via a variable called <code>$(SolutionDir)</code>.
+The solution directory does not contain a terminating backslash.</p>
+<pre>SOLPATH=$(SolutionDir)\Include</pre>
+<p>The solution's name is available through <code>$(SolutionName)</code>.</p>
+<pre>SOLNAME=$(SolutionName)\Include</pre>
+<p>A special form of assignment is available through the <code>?=</code> 
+operator.&nbsp; An assignment is only made if the environment variable does not 
+already exist.</p>
+<pre>-- Only assign if PATH does not already exist.
+PATH ?= c:\windows</pre>
+<p>Some software packages don't handle relative paths very well.&nbsp; The 
+Solution Build Environment add-in has a special symbol for expanding relative 
+paths into an absolute form.&nbsp; The absolute expansion of the path is 
+triggered by inserting an exclamation point at the beginning of the line.</p>
+<pre>RELPATH=c:\Windows\System32\..
+!ABSPATH=$(RELPATH)  # c:\Windows</pre>
+<p>Environment variables may be inserted  using the <code>$(EnvironmentVariableName)</code>
+syntax. This has the same functionality as a batch file's <code>%EnvironmentVariableName%</code>
+substitution syntax but more closely mirrors Visual Studio's syntax for 
+accessing environment variables.</p>
+<pre>PATH=$(PATH);c:\Tools;$(MYPATH)\..\Bin</pre>
+<p>Simple registry entries may be accessed via <code>%(HKLM\Path\Key)</code> or
+<code>%(HKCU\Path\Key)</code>, where <code>HKLM</code> accesses <code>
+HKEY_LOCAL_MACHINE</code> and <code>HKCU</code> accesses <code>HKEY_CURRENT_USER</code>.
+Only string values may be retrieved.</p>
+<pre>MYPATH=%(HKLM\Software\MySoftware\Path)</pre>
+<p>An environment variable may be applied onto a specific Solution
+Configuration. The syntax for this is <code>ConfigurationName:Name=Value</code>.</p>
+<pre>Debug:PATH=$(PATH);%(HKLM\Software\MySoftware\DebugPath)
+Release:PATH=$(PATH);%(HKLM\Software\MySoftware\DebugPath)</pre>
+<p>Other <i>.slnenv</i> files may be included using the <code>
+include</code> or <code>forceinclude</code> keywords. The filename
+following each keyword should not contain the <i>.slnenv</i> extension.</p>
+<p><code>include $(HOMEDRIVE)$(HOMEPATH)\MyPersonalDefinitions<br>
+forceinclude ..\..\MandatoryDefinitions</code></p>
+<p>Comments are specified by using <code>--</code> or <code>//</code> or <code>#</code>.</p>
+<pre>-- This is a comment.
+// This is a comment.
+Key=Value # This is a comment</pre>
+<h2>Example</h2>
+<p>Assume you are building a DirectX application called Game, but the DirectX
+include directory is not at the same location across different machines.
+(Normally, the DirectX include directory is global, but this may not always be
+the case.) This is a good example of creating a per user <code>.slnenv</code>
+file. First, we put a <code>Game.slnenv</code> file in the same directory
+as <code>Game.sln</code>.</p>
+<pre>-- Provide a reasonable default.
+DXPATH=c:\dxsdk
+
+-- Call the user .slnenv file so it can override.  We don't use forceinclude so this is optional.
+include $(HOMEDRIVE)$(HOMEPATH)\UserDXPath
+
+-- Now, build the compile options.
+COMPILE_OPTS=/I &quot;$(DXPATH)\Include&quot;</pre>
+<p>The <code>UserDXPath.slnenv</code> file may look like this:</p>
+<pre>-- The DirectX SDK is actually at the d:\Program Files\DXSDK directory.
+DXPATH=d:\Program Files\DXSDK</pre>
+<p>When the <code>Game.sln</code> file is run, the environment variable <code>
+DXPATH</code> is available to it via <code>$(DXPATH)</code> and <code>
+COMPILE_OPTS</code> is available via <code>$(COMPILE_OPTS)</code>. If
+<code>$(COMPILE_OPTS)</code> is inserted into the Command-Line Options property
+page, the build uses your DirectX directory.</p>
+<h2>Technical Details</h2>
+<p>Solution Build Environment was written in C++ with ATL support for the add-in.
+It demonstrates the use of patching into the Solution Events and Build Events
+objects. It also demonstrates additional code that may be inserted into
+<code>DllRegisterServer()</code> and <code>DllUnregisterServer()</code> that
+install and uninstall the add-in registry entries without additional install
+scripts.</p>
+<p>The build environment technique works because add-ins run in the same process space as Visual
+Studio's <code>devenv.exe</code>. Builds launched from the IDE inherit the environment
+of <code>devenv.exe</code>. Calling the Win32 <code>SetEnvironmentVariable()</code>
+function call allows manipulation of the IDE environment. Previous to
+setting the new environment variable, the old one is retrieved using <code>
+GetEnvironmentVariable()</code> and stored, allowing each solution session to
+work in a pristine environment.</p>
+<p>The only strange part of the environment variable registration process occurs
+when an environment variable is used for the Output or
+Intermediate directory. Even though Solution Build Environment reconfigures
+the environment per solution configuration at build time, the Output and
+Intermediate directories are resolved by Visual Studio .NET <i>once</i> at
+solution open time. Solution Build Environment compensates for that by reading
+the <code>.slnenv</code> file at solution open time, too.</p>
+<p>Applying the .slnenv file at solution open time also has benefit when
+modifying a setting such as the <code>PATH</code>. The new <code>PATH</code>
+will be available through the entire session, including when the solution is
+run.</p>
+<h2>Known Bugs</h2>
+<ul>
+  <li>None at this time.</li>
+</ul>
+<h2>Thanks</h2>
+<p>Thanks to Carter L. Smithhart for the recent fixes to 1.10.</p>
+<h2>License</h2>
+<p>Copyright (C) 2000-2008 Joshua C. Jensen<br>
+<br>
+Permission is hereby granted, free of charge, to any person obtaining a copy of 
+this software and associated documentation files (the &quot;Software&quot;), to deal in 
+the Software without restriction, including without limitation the rights to 
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of 
+the Software, and to permit persons to whom the Software is furnished to do so, 
+subject to the following conditions:<br>
+<br>
+The above copyright notice and this permission notice shall be included in all 
+copies or substantial portions of the Software.<br>
+<br>
+THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS 
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>
+<h2>History</h2>
+<ul>
+  <li>1.30<ul>
+	<li>Added Visual Studio 2008 support.</li>
+	</ul>
+  </li>
+	<li>1.21<ul>
+  <li>Fixed ?=.</li>
+</ul>
+  </li>
+	<li>1.20<ul>
+  <li>Added ?= so the variable is only set if it hasn't already been set.</li>
+	<li>Works under Visual Studio 2005.</li>
+</ul>
+  </li>
+	<li>1.10<ul>
+  <li>Renamed to Solution Build Environment.</li>
+	<li>Relative paths can be expanded to absolute paths via an ! at the 
+	beginning of the line.</li>
+	<li>#, --, and // comments are supported.&nbsp; -- comments used to exist, 
+	but at some point, it was accidentally removed.</li>
+</ul>
+  </li>
+	<li>1.04<ul>
+		<li>Support for Visual Studio .NET 2003.</li>
+		<li>Some more environment variable fixes.</li>
+	</ul></li>
+	<li>1.03 - Bug fix to allow environment variables larger than _MAX_PATH in 
+  length.&nbsp; Oftentimes, the PATH environment variable would become screwed 
+  up.</li>
+	<li>1.02 - Bug fix opening a file when no solution is loaded.</li>
+</ul>
+<h2>Conclusion</h2>
+<p>I hope the Solution Build Environment add-in will be useful to you. If
+you have comments or find a bugs, please report them here or via email at <a href="mailto:'jjensen@workspacewhiz.com">
+'jjensen@workspacewhiz.com</a>'.</p>
+<p>Thanks,</p>
+<p>Joshua Jensen<br>
+Author, Solution Build Environment Add-in<br>
+<a href="http://workspacewhiz.com/">http://workspacewhiz.com/</a><br>
+</p>
+
+</body>
+
+</html>
